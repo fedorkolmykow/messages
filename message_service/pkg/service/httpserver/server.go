@@ -143,7 +143,7 @@ func (s *server) HandleDocsRedirect(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	urlRed := u.Hostname() + os.Getenv("DOCS_PORT")
+	urlRed := u.Scheme + u.Hostname() + os.Getenv("DOCS_PORT")
 	http.Redirect(w, r, urlRed, http.StatusSeeOther)
 }
 
