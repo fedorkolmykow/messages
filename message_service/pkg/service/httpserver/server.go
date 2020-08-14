@@ -1,11 +1,10 @@
 package httpserver
 
 import (
+	"github.com/gorilla/mux"
 	"io/ioutil"
 	"net/http"
 	"os"
-
-	"github.com/gorilla/mux"
 
 	m "github.com/fedorkolmykow/messages/pkg/modeles"
 )
@@ -138,7 +137,8 @@ func (s *server) HandleGetMessage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) HandleDocsRedirect(w http.ResponseWriter, r *http.Request) {
-	http.Redirect(w, r, os.Getenv("DOCS_URL"), http.StatusSeeOther)
+	url := r.Host + os.Getenv("DOCS_PORT")
+	http.Redirect(w, r, url, http.StatusSeeOther)
 }
 
 //func (s *server) Handle(w http.ResponseWriter, r *http.Request) {
