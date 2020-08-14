@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"net/url"
 
 	m "github.com/fedorkolmykow/messages/pkg/modeles"
 )
@@ -137,8 +138,13 @@ func (s *server) HandleGetMessage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) HandleDocsRedirect(w http.ResponseWriter, r *http.Request) {
-	url := r.Host + os.Getenv("DOCS_PORT")
-	http.Redirect(w, r, url, http.StatusSeeOther)
+	u, err := url.Parse(r.Host)
+	if err!= nil{
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	urlRed := u.Hostname() + os.Getenv("DOCS_PORT")
+	http.Redirect(w, r, urlRed, http.StatusSeeOther)
 }
 
 //func (s *server) Handle(w http.ResponseWriter, r *http.Request) {
