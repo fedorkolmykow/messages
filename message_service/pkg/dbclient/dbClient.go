@@ -44,10 +44,10 @@ checkChat = "SELECT EXISTS(SELECT chat_id from Chats where chat_id=$1)"
 
 )
 
-func (d *db) checkUsers(users_id []string) (nonexistentId string, err error){
+func (d *db) checkUsers(usersId []string) (nonexistentId string, err error){
 	var userExist bool
 	b := &pgx.Batch{}
-	for _, id := range users_id{
+	for _, id := range usersId{
 		b.Queue(checkUser, id)
 	}
 	br := d.dbCon.SendBatch(context.Background(), b)
@@ -57,7 +57,7 @@ func (d *db) checkUsers(users_id []string) (nonexistentId string, err error){
 		log.Fatal(err)
 		return
 	}
-	for _, id := range users_id {
+	for _, id := range usersId {
 		rows.Next()
 		err = rows.Scan(&userExist)
 		if err != nil {
@@ -68,6 +68,7 @@ func (d *db) checkUsers(users_id []string) (nonexistentId string, err error){
 			return id, nil
 		}
 	}
+	return
 }
 
 func (d *db) InsertUser(userAddReq *m.UserAddRequest) (userAddResp *m.UserAddResponse, err error) {
