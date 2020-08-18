@@ -2,6 +2,7 @@ package dbclient
 
 import (
 	"context"
+	"errors"
 	"log"
 	"os"
 	"strconv"
@@ -38,7 +39,36 @@ selectChats = "SELECT Chats.chat_id, Chats.name, Chats.created_at," +
 selectMessages = "SELECT message_id, author_id, chat_id, text, created_at " +
 	"FROM Messages " +
 	"WHERE chat_id = $1;"
+checkUser = "SELECT EXISTS(SELECT user_id from Users where user_id=$1)"
+checkChat = "SELECT EXISTS(SELECT chat_id from Chats where chat_id=$1)"
+
 )
+
+func (d *db) checkUsers(users_id []string) (nonexistentId string, err error){
+	var userExist bool
+	b := &pgx.Batch{}
+	for _, id := range users_id{
+		b.Queue(checkUser, id)
+	}
+	br := d.dbCon.SendBatch(context.Background(), b)
+	defer br.Close()
+	rows, err := br.Query()
+	if err != nil {
+		log.Fatal(err)
+		return
+	}
+	for _, id := range users_id {
+		rows.Next()
+		err = rows.Scan(&userExist)
+		if err != nil {
+			log.Fatal(err)
+			return
+		}
+		if userExist{
+			return id, nil
+		}
+	}
+}
 
 func (d *db) InsertUser(userAddReq *m.UserAddRequest) (userAddResp *m.UserAddResponse, err error) {
 	var userId int
@@ -52,19 +82,20 @@ func (d *db) InsertUser(userAddReq *m.UserAddRequest) (userAddResp *m.UserAddRes
 	userAddResp.UserId = strconv.Itoa(userId)
 	return
 }
+
 func (d *db) InsertChat(chatAddReq *m.ChatAddRequest) (chatAddResp *m.ChatAddResponse, err error) {
 	var chatId int
 	b := &pgx.Batch{}
 	chatAddResp = &m.ChatAddResponse{}
-	row := d.dbCon.QueryRow(context.Background(), insertChat, chatAddReq.Name, chatAddReq.CreatedAt)
-	err = row.Scan(&chatId)
-	if err!=nil{
-		log.Fatal(err)
-		return
+	nonId, err := d.checkUsers(chatAddReq.UsersId)
+	if nonId != ""{
+		errorText := "No user with such ID [" +  nonId + "] exists."
+		return nil, errors.New(errorText)
 	}
-	chatAddResp.ChatId = strconv.Itoa(chatId)
-	for i, _ := range chatAddReq.UsersId{
-		b.Queue(insertChatUsers, chatAddResp.ChatId, chatAddReq.UsersId[i])
+
+	b.Queue(insertChat, chatAddReq.Name, chatAddReq.CreatedAt)
+	for _, id := range chatAddReq.UsersId{
+		b.Queue(insertChatUsers, chatAddResp.ChatId, id)
 	}
 	br := d.dbCon.SendBatch(context.Background(), b)
 	defer br.Close()
@@ -74,8 +105,16 @@ func (d *db) InsertChat(chatAddReq *m.ChatAddRequest) (chatAddResp *m.ChatAddRes
 		return
 	}
 	defer rows.Close()
+	rows.Next()
+	err = rows.Scan(&chatId)
+	if err!=nil{
+		log.Fatal(err)
+		return
+	}
+	chatAddResp.ChatId = strconv.Itoa(chatId)
 	return
 }
+
 func (d *db) InsertMessage(mesAddReq *m.MessageAddRequest) (mesAddResp *m.MessageAddResponse, err error) {
 	var mesId int
 	mesAddResp = &m.MessageAddResponse{}
