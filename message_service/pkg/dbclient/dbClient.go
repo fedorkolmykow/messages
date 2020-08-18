@@ -44,7 +44,7 @@ checkChat = "SELECT EXISTS(SELECT chat_id from Chats where chat_id=$1)"
 
 )
 
-func (d *db) checkUsers(usersId []string) (nonexistentId string, err error){
+func (d *db) checkUsers(usersId []string) (err error){
 	var userExist bool
 	b := &pgx.Batch{}
 	for _, id := range usersId{
@@ -64,8 +64,9 @@ func (d *db) checkUsers(usersId []string) (nonexistentId string, err error){
 			log.Fatal(err)
 			return
 		}
-		if userExist{
-			return id, nil
+		if !userExist{
+			errorText := "No user with such ID [" +  id + "] exists."
+			return errors.New(errorText)
 		}
 	}
 	return
@@ -88,10 +89,9 @@ func (d *db) InsertChat(chatAddReq *m.ChatAddRequest) (chatAddResp *m.ChatAddRes
 	var chatId int
 	b := &pgx.Batch{}
 	chatAddResp = &m.ChatAddResponse{}
-	nonId, err := d.checkUsers(chatAddReq.UsersId)
-	if nonId != ""{
-		errorText := "No user with such ID [" +  nonId + "] exists."
-		return nil, errors.New(errorText)
+	err = d.checkUsers(chatAddReq.UsersId)
+	if err != nil{
+		return nil, err
 	}
 
 	b.Queue(insertChat, chatAddReq.Name, chatAddReq.CreatedAt)
